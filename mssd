@@ -1,0 +1,84 @@
+# Package that provide functions to read system information and environment variables, work with the registry and manage shortcuts
+import win32com.client
+# Package that use for data processing
+import pandas as pd
+
+# Connect to Outlook by MAPI
+outlook = win32com.client.Dispatch('Outlook.Application')
+mapi = outlook.GetNamespace("MAPI")
+
+# Check whether the account belongs to local user
+for account in mapi.Accounts:
+    print(account.DeliveryStore.DisplayName)
+
+# Read Outlook Email
+inbox = mapi.GetDefaultFolder(6).Folders["MSSD rebulid index"]
+messages = inbox.Items
+# Read the last message
+message = messages.GetLast()
+body_content = message.body
+
+# Split the email body content (each word) into a list where each word is a list item:
+x = body_content.split()
+# Join all items into a string
+x = " ".join(x)
+x
+
+# for each word in body_content, if it starts with 'ERROR', then record it in the list
+a = [i for i in range(len(x)) if body_content.startswith('ERROR', i)]
+a
+
+# Create an error list that contains all the error lines
+error_list = []
+
+for i in range(len(a)):
+    error_list.append(body_content[a[i] - 75:a[i]])
+m = " ".join(error_list)
+
+# Check whether the error list contain items. If it does not contain any items, it will do nothing. Otherwise, it will find all rebuild index that in front of the error line and send email
+if error_list == []:
+    print("abc")
+else:
+    error_list2 = []
+    for i in error_list:
+        error_list2.append(i.partition("alter index")[1] + i.partition("alter index")[2] + ";" + "<br>")
+
+    error_list3 = []
+    for j in error_list2:
+        error_list3.append(j.partition("rebuild")[0] + j.partition("rebuild")[1] + ";" + "\r")
+
+    # print(error_list3)
+
+    ##########################################
+    error_list4 = []
+    for p in error_list3:
+        if p[0:18] != "alter index CC_AC_" and p[0:19] != "alter index MC_CCY_":
+            error_list4.append(p)
+    ##########################################
+
+    k = " ".join(error_list4)
+    k
+    html = "<p>" + "Hi Cheung," + "</p>" + "<p>" + "Could you help to re-run the following index rebuild during 12:00pm to 1:00pm today?" + "</p>" + "<p>" + k.replace(
+        "\r", "<br>") + "</p>"
+    html
+
+    if error_list4 != []:
+        import datetime
+
+        now = datetime.datetime.now()
+        print(now.strftime('%A'))
+
+        if now.strftime('%A') != "Saturday" and now.strftime('%A') != "Sunday":
+            mail = outlook.CreateItem(0)
+            mail.To = 'wc.tang@htisec.com'
+            mail.Cc = 'MSSProductionSupportFutures@htisec.com;marcus.ch.li@htisec.com;hons.kh.wong@htisec.com;glen.p.ho@htisec.com;wlyu@htisec.com;ko.wong@htisec.com;wc.yu@htisec.com;'
+            # mail.To = 'wc.yu@htisec.com;'
+            mail.Subject = 'RE: MSSD rebuild index output file - ' + str(now.strftime('%A'))
+            # mail.Subject = 'RE: MSSD rebuild index output file - '
+            mail.Body = "<p>" + "Best Regards, <br>" + "Post-Trade Team  <br>" + "</p>" + "<p>" + "Information Technology Department <br> Haitong International Securities Group Limited <br> 22/F Li Po Chun Chambers, 189 Des Voeux Rd Central, Hong Kong" + "</p>"
+
+            mail.HTMLBody = html + mail.Body  # this field is optional
+
+            mail.Send()
+
+message.Move(mapi.GetDefaultFolder(6).Folders["MSSD rebulid index(read)"])
